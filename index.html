@@ -2,26 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Flappy Bird</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="css/game.css">
 </head>
 <body>
-  <div class="game-shell">
+  <main class="game-shell">
+    <header>
+      <h1>Flappy Bird</h1>
+      <p id="instructions">Space / ↑ or tap the sky to flap. Pass through the gaps.</p>
+    </header>
     <div id="game-container">
-      <canvas></canvas>
-      <div id="ui-layer">
+      <canvas width="480" height="720" tabindex="0" aria-label="Flappy Bird playfield" aria-describedby="instructions">Your browser needs Canvas support to play.</canvas>
+      <div id="ui-layer" aria-hidden="true">
         <div id="score-display">0</div>
-        <div id="status-area">Loading...</div>
-        <div class="controls">
-          <button id="btn-start" style="display: none;">Start</button>
-          <button id="btn-restart" style="display: none;">Restart</button>
-          <button id="btn-pause" style="display: none;">Pause</button>
-          <button id="btn-mute" style="display: none;">Mute</button>
-        </div>
       </div>
     </div>
-  </div>
+    <footer>
+      <div id="status-area" role="status" aria-live="polite">Loading…</div>
+      <div class="controls">
+        <button id="btn-start" type="button" hidden>Start</button>
+        <button id="btn-restart" type="button" hidden>Restart</button>
+        <button id="btn-pause" type="button" hidden>Pause</button>
+        <button id="btn-mute" type="button" hidden aria-pressed="false">Mute</button>
+        <button id="btn-retry" type="button" hidden>Retry</button>
+      </div>
+      <p class="record">Best: <span id="best-display">0</span></p>
+      <p id="resource-status" hidden></p>
+    </footer>
+  </main>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

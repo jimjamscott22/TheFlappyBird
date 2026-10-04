@@ -12,14 +12,16 @@ The game uses native JavaScript modules and browser APIs. There is no package in
 - **Randomized obstacle gaps:** moving pairs, collision detection, and one point for each passed pair.
 - **Responsive rendering:** a 480 × 720 logical playfield, CSS scaling, and a display-density-aware canvas bitmap.
 - **Local best scores:** records saved in the browser when storage is available.
-- **Optional artwork and sound:** sprite loading, a three-frame bird animation, velocity-based tilt, and Web Audio sound effects.
+- **An animated bird:** built-in Canvas artwork with a body, beak, eye, tail, three wing poses, and velocity-based tilt. No asset pack is required.
+- **Optional artwork and sound:** configurable sprite sheets and Web Audio sound effects, with safe fallbacks.
+- **Accessible controls:** visible instructions and keyboard focus, HTML buttons, and a status region announcing the final result.
 - **Automatic pause:** switching away from the page pauses an active run; resuming requires an action.
 
 ## Quick start
 
 ### Requirements
 
-- A modern browser with Canvas 2D, JavaScript modules, and Web Audio support.
+- A modern browser with Canvas 2D and JavaScript modules. Web Audio support is needed only for optional sound effects.
 - Git to clone the repository, or a downloaded copy of its files.
 - A static HTTP server. The examples below use Python 3; Python is only a development convenience, not a gameplay dependency.
 
@@ -50,7 +52,7 @@ Serve the files over HTTP rather than opening `index.html` through a `file://` U
 
 ## How to play
 
-Use a primary action to start, then keep flapping to pass through the gaps. Touching an obstacle, the ceiling, or the bottom of the logical playfield ends the run.
+Use a primary action to start, then keep flapping to pass through the gaps. Touching an obstacle, the ceiling, or the visible ground ends the run. Collision bounds are inset slightly from the bird's artwork and remain stable while it tilts or flaps.
 
 | Control | Action |
 | --- | --- |
@@ -60,7 +62,8 @@ Use a primary action to start, then keep flapping to pass through the gaps. Touc
 | Pause | Pause the current run. |
 | Resume | Continue a paused run without an automatic flap. |
 | Restart | Reset to the ready screen. Use another primary action to begin the next run. |
-| Mute / Unmute | Toggle optional sound effects. |
+| Mute / Unmute | Toggle optional sound effects. Appears when at least one sound has loaded. |
+| Retry | Reload after a startup failure. |
 
 Clicking Start or tapping the canvas gives it keyboard focus. Holding Space or Arrow Up does not repeatedly flap; each key press produces a separate action.
 
@@ -68,9 +71,9 @@ Your best score appears on the game-over screen. It is stored locally under `fla
 
 ## Artwork and audio
 
-**The repository currently does not include an asset pack.** Missing images use fallback graphics: a yellow bird, green obstacles, and a sky-colored background. Missing audio files are skipped, so the game remains silent until sounds are added. Missing-file messages in the console or local server log are expected in this configuration.
+**The repository does not require or include an asset pack.** The default game draws an animated yellow bird, green obstacles, sky, and scrolling ground directly in Canvas. Optional asset paths default to `null`, so startup makes no requests for absent files. The game is silent until sounds are configured.
 
-To add assets, create these paths in the project root:
+To add assets, create these paths in the project root and enable the corresponding entries in `IMAGE_MANIFEST` in [`js/assets.js`](js/assets.js) and `AUDIO_MANIFEST` in [`js/audio.js`](js/audio.js):
 
 ```text
 assets/
@@ -91,7 +94,9 @@ assets/
 | `background.png` | A background image drawn across the 480 × 720 playfield. |
 | `flap.wav`, `score.wav`, `hit.wav` | Short sound effects for flapping, passing an obstacle pair, and collision. |
 
-Image paths are defined in [`js/assets.js`](js/assets.js), and audio paths in [`js/audio.js`](js/audio.js). Both resolve paths relative to their modules. The ground strip is drawn directly in Canvas and does not need an image.
+For example, set the bird entry to `bird: '../assets/sprites/bird.png'` and a sound entry to `flap: '../assets/audio/flap.wav'`. Both manifests resolve paths relative to their modules. The ground strip is drawn directly in Canvas and does not need an image.
+
+Images load before the game becomes ready, with a bounded wait per image. A missing or malformed bird sheet uses the built-in bird and shows a status message. Optional audio loads independently of game startup; missing sounds, unsupported audio, and rejected playback do not interrupt play. A missing Canvas context shows an error and Retry button.
 
 Sound playback depends on the browser's audio policy and user interaction. Use your own artwork and audio, or assets whose licenses permit their use and distribution.
 
@@ -125,12 +130,12 @@ TheFlappyBird/
 | [`state.js`](js/state.js) | Define and share the ready, playing, game-over, and paused states. |
 | [`player.js`](js/player.js) | Handle flapping, gravity, position, collision bounds, sprite animation, and tilt. |
 | [`obstacles.js`](js/obstacles.js) | Spawn randomized obstacle pairs, move them, draw them, and remove off-screen pairs. |
-| [`input.js`](js/input.js) | Map keyboard, pointer, and button events to game actions; pause on page visibility changes. |
+| [`input.js`](js/input.js) | Map keyboard, pointer, and button events to controller actions; reset loop timing on state changes and pause on page visibility changes. |
 | [`assets.js`](js/assets.js) | Load optional images and record missing-image fallbacks. |
 | [`audio.js`](js/audio.js) | Load and decode optional sounds, play effects through Web Audio, and manage mute state. |
 | [`config.js`](js/config.js) | Collect playfield dimensions and gameplay tuning constants. |
 
-The animation loop updates gameplay only while playing and renders the current scene every frame. Physics uses logical world coordinates; the canvas backing bitmap changes with display size and pixel density. HTML supplies the score, status, and buttons above the Canvas scene.
+The animation loop updates gameplay only while playing and renders the current scene every frame. Physics uses logical world coordinates; the canvas backing bitmap changes with display size and pixel density. The score overlays the Canvas; instructions, status, controls, and best score use HTML outside the playfield. Sizing reserves room for these controls. Short landscape screens retain a playable minimum size and allow vertical scrolling.
 
 ## Tune the gameplay
 
@@ -140,6 +145,9 @@ Edit [`js/config.js`](js/config.js) to change the current defaults:
 | --- | --- | --- |
 | `WORLD_WIDTH` | `480` | Logical playfield width. |
 | `WORLD_HEIGHT` | `720` | Logical playfield height. |
+| `GROUND_HEIGHT` | `50` | Ground strip height; its top is the collision floor. |
+| `PLAYER_BOUNDS_INSET` | `3` | Collision inset from each edge of the bird's drawing area. |
+| `GAP_MARGIN` | `50` | Minimum obstacle height above the gap and below it to the ground. |
 | `GRAVITY` | `1800` | Downward acceleration in logical units per second squared. |
 | `FLAP_VELOCITY` | `-600` | Upward velocity applied by a flap, in logical units per second. |
 | `OBSTACLE_SPEED` | `240` | Horizontal obstacle speed in logical units per second. |
@@ -157,7 +165,11 @@ Edit the HTML, CSS, or JavaScript files and refresh the browser to see changes. 
 - Pause through the button and by switching browser tabs, then resume deliberately.
 - Check keyboard focus, pointer input, and canvas sizing on the devices you intend to support.
 - Reload after setting a record and confirm that the best score persists when storage is available.
-- Run with and without optional images and sounds.
+- Configure optional images and sounds, then check missing-file fallbacks.
+
+For browser inspection, `window.render_game_to_text()` returns JSON describing the logical world, state, bird, obstacles, score, and timers. `window.advanceTime(ms)` switches the current page to deterministic manual stepping through the same fixed-step simulation; reload to return to normal animation timing.
+
+This refactor was checked in Chrome with desktop, 390 × 844 and 320 × 568 portrait, and 844 × 390 landscape viewports. Browser checks covered touch and keyboard input, repeated replay, pause/resume, orientation changes, collisions and scoring, saved records, asset failures, unavailable storage/audio, and matching simulation results at 30, 60, and 144 Hz. These are emulated device checks rather than physical-device tests.
 
 Deploy the project files to a static host that serves JavaScript modules correctly. Keep `index.html`, `css/`, and `js/` together, along with `assets/` if you add it. No server-side game logic is needed.
 
@@ -165,7 +177,7 @@ Deploy the project files to a static host that serves JavaScript modules correct
 
 The [improvement guide](docs/flappy-bird-improvement-guide.md) records the architecture recommendations from the earlier game-loop skeleton. Several of those recommendations are now implemented in the modules above.
 
-Useful next steps include an original asset pack, better fitting on short landscape screens, clearer loading and failure feedback, and further tuning of collision bounds and scoring at the end of a run.
+The next round now includes a recognizable animated bird, viewport fitting, startup/fallback feedback, stable inset collision bounds, ground-aligned gaps, and collision-before-score handling. Remaining optional polish includes richer scenery, original sound effects, and playtesting difficulty on physical devices.
 
 ## License
 

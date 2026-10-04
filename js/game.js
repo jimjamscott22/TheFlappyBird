@@ -1,4 +1,4 @@
-import { WORLD_WIDTH, WORLD_HEIGHT, OBSTACLE_WIDTH } from './config.js';
+import { GROUND_Y, OBSTACLE_WIDTH } from './config.js';
 import { Player } from './player.js';
 import { ObstacleManager } from './obstacles.js';
 import { State, state, setState } from './state.js';
@@ -16,8 +16,9 @@ export class Game {
   loadBestScore() {
     try {
       const best = localStorage.getItem('flappy.bestScore.v1');
-      if (best !== null) {
-        return parseInt(best, 10);
+      if (best !== null && /^(0|[1-9]\d*)$/.test(best)) {
+        const value = Number(best);
+        if (Number.isSafeInteger(value)) return value;
       }
     } catch (e) {
       console.warn("Could not load best score from local storage", e);
@@ -41,6 +42,27 @@ export class Game {
     this.updateUI();
   }
 
+  primaryAction() {
+    if (state === State.READY) {
+      setState(State.PLAYING);
+      this.player.flap();
+      this.updateUI();
+    } else if (state === State.PLAYING) {
+      this.player.flap();
+    } else if (state === State.GAME_OVER) {
+      this.reset();
+    } else if (state === State.PAUSED) {
+      setState(State.PLAYING);
+      this.updateUI();
+    }
+  }
+
+  pause() {
+    if (state !== State.PLAYING) return;
+    setState(State.PAUSED);
+    this.updateUI();
+  }
+
   update(dt) {
     if (state !== State.PLAYING) return;
 
@@ -48,14 +70,15 @@ export class Game {
     this.obstacles.update(dt);
 
     this.checkCollisions();
-    this.checkScore();
+    if (state === State.PLAYING) this.checkScore();
   }
 
   checkCollisions() {
     const pBounds = this.player.getBounds();
 
     // Floor / Ceiling
-    if (pBounds.bottom >= WORLD_HEIGHT || pBounds.top <= 0) {
+    if (pBounds.bottom >= GROUND_Y || pBounds.top <= 0) {
+      this.player.y += pBounds.bottom >= GROUND_Y ? GROUND_Y - pBounds.bottom : -pBounds.top;
       this.gameOver();
       return;
     }
@@ -75,6 +98,7 @@ export class Game {
   }
 
   checkScore() {
+    if (state !== State.PLAYING) return;
     const pLeft = this.player.getBounds().left;
     for (const pair of this.obstacles.pairs) {
       if (!pair.passed && pLeft > pair.x + OBSTACLE_WIDTH) {
@@ -87,6 +111,7 @@ export class Game {
   }
 
   gameOver() {
+    if (state !== State.PLAYING) return;
     playSound('hit');
     setState(State.GAME_OVER);
     if (this.score > this.bestScore) {
@@ -107,28 +132,29 @@ export class Game {
     const startBtn = document.getElementById('btn-start');
     const restartBtn = document.getElementById('btn-restart');
     const pauseBtn = document.getElementById('btn-pause');
+    const bestEl = document.getElementById('best-display');
 
     if (scoreEl) scoreEl.textContent = this.score;
+    if (bestEl) bestEl.textContent = this.bestScore;
 
-    if (!statusEl) return;
-
-    startBtn.style.display = 'none';
-    restartBtn.style.display = 'none';
-    pauseBtn.style.display = 'none';
-
-    if (state === State.READY) {
-      statusEl.textContent = 'Get Ready!';
-      startBtn.style.display = 'inline-block';
-    } else if (state === State.PLAYING) {
-      statusEl.textContent = '';
-      pauseBtn.style.display = 'inline-block';
-    } else if (state === State.GAME_OVER) {
-      statusEl.textContent = `Game Over! Best: ${this.bestScore}`;
-      restartBtn.style.display = 'inline-block';
-    } else if (state === State.PAUSED) {
-      statusEl.textContent = 'Paused';
-      startBtn.style.display = 'inline-block';
-      startBtn.textContent = 'Resume';
+    if (startBtn) {
+      startBtn.hidden = ![State.READY, State.PAUSED].includes(state);
+      startBtn.textContent = state === State.PAUSED ? 'Resume' : 'Start';
     }
+    if (restartBtn) restartBtn.hidden = state !== State.GAME_OVER;
+    if (pauseBtn) pauseBtn.hidden = state !== State.PLAYING;
+
+    let status = '';
+    if (state === State.READY) {
+      status = 'Get ready!';
+    } else if (state === State.PLAYING) {
+      status = 'Keep flapping!';
+    } else if (state === State.GAME_OVER) {
+      status = `Game over! Score: ${this.score}. Best: ${this.bestScore}. Restart to try again.`;
+    } else if (state === State.PAUSED) {
+      status = 'Paused. Resume when you’re ready.';
+    }
+    // Updating the score must not repeat live-region announcements.
+    if (statusEl && statusEl.textContent !== status) statusEl.textContent = status;
   }
 }

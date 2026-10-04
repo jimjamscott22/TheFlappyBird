@@ -1,70 +1,45 @@
-import { State, state, setState } from './state.js';
+import { State, state } from './state.js';
 
-export function bindInput(game, resetTiming) {
+export function bindInput(game, resetTiming, canvas) {
   function primaryAction() {
-    if (state === State.READY) {
-      setState(State.PLAYING);
-      game.updateUI();
-      game.player.flap();
-    } else if (state === State.PLAYING) {
-      game.player.flap();
-    } else if (state === State.GAME_OVER) {
-      game.reset();
-      resetTiming();
-    } else if (state === State.PAUSED) {
-      setState(State.PLAYING);
-      game.updateUI();
-      resetTiming();
-    }
+    const previousState = state;
+    game.primaryAction();
+    if (state !== previousState) resetTiming(state === State.READY);
   }
 
-  const canvas = document.querySelector('canvas');
-  canvas.tabIndex = 0;
-  
-  canvas.addEventListener("pointerdown", () => {
-    canvas.focus();
+  canvas.addEventListener('pointerdown', event => {
+    if (!event.isPrimary || event.button !== 0) return;
+    canvas.focus({ preventScroll: true });
     primaryAction();
   });
 
-  canvas.addEventListener("keydown", event => {
-    if (!["Space", "ArrowUp"].includes(event.code)) return;
+  canvas.addEventListener('keydown', event => {
+    if (!['Space', 'ArrowUp'].includes(event.code)) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
     event.preventDefault();
-    if (!event.repeat && !event.ctrlKey && !event.metaKey) {
-      primaryAction();
-    }
+    if (!event.repeat) primaryAction();
   });
 
-  const startBtn = document.getElementById('btn-start');
-  const restartBtn = document.getElementById('btn-restart');
-  const pauseBtn = document.getElementById('btn-pause');
+  document.getElementById('btn-start').addEventListener('click', () => {
+    canvas.focus({ preventScroll: true });
+    primaryAction();
+  });
 
-  if (startBtn) {
-    startBtn.addEventListener('click', () => {
-      canvas.focus();
-      primaryAction();
-    });
-  }
+  document.getElementById('btn-restart').addEventListener('click', () => {
+    game.reset();
+    resetTiming(true);
+    canvas.focus({ preventScroll: true });
+  });
 
-  if (restartBtn) {
-    restartBtn.addEventListener('click', () => {
-      canvas.focus();
-      primaryAction();
-    });
-  }
-
-  if (pauseBtn) {
-    pauseBtn.addEventListener('click', () => {
-      if (state === State.PLAYING) {
-        setState(State.PAUSED);
-        game.updateUI();
-      }
-    });
-  }
+  document.getElementById('btn-pause').addEventListener('click', () => {
+    game.pause();
+    resetTiming();
+  });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && state === State.PLAYING) {
-      setState(State.PAUSED);
-      game.updateUI();
+    if (document.hidden) {
+      game.pause();
+      resetTiming();
     }
   });
 }
