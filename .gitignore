@@ -8,3 +8,6 @@ gen
 
 # Local browser verification artifacts
 output/
+
+# Graphify generated state and exports
+.graphify/
