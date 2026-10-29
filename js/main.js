@@ -142,6 +142,9 @@ async function init() {
       state,
       player: { x: game.player.x, y: game.player.y, velocity: game.player.velocity, bounds: game.player.getBounds(), animationTime: game.player.animTimer },
       obstacles: game.obstacles.pairs,
+      creatures: game.creatures.items.map(creature => ({
+        ...creature, bounds: game.creatures.getBounds(creature)
+      })),
       spawnTimer: game.obstacles.spawnTimer,
       score: game.score,
       bestScore: game.bestScore,

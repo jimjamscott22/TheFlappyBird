@@ -1,4 +1,4 @@
-import { WORLD_WIDTH, GROUND_Y, GAP_MARGIN, OBSTACLE_SPEED, SPAWN_INTERVAL, OBSTACLE_WIDTH, GAP_SIZE } from './config.js';
+import { WORLD_WIDTH, GROUND_Y, GAP_MARGIN, OBSTACLE_SPEED, SPAWN_INTERVAL, OBSTACLE_WIDTH, GAP_SIZE, PIPE_SPAWN_PADDING } from './config.js';
 
 import { sprites } from './assets.js';
 
@@ -13,9 +13,10 @@ export class ObstacleManager {
   }
 
   update(dt) {
+    const spawned = [];
     this.spawnTimer -= dt;
     while (this.spawnTimer <= 0) {
-      this.spawn();
+      spawned.push(this.spawn());
       this.spawnTimer += SPAWN_INTERVAL;
     }
 
@@ -27,6 +28,7 @@ export class ObstacleManager {
     while (this.pairs.length > 0 && this.pairs[0].x + OBSTACLE_WIDTH < 0) {
       this.pairs.shift();
     }
+    return spawned;
   }
 
   spawn() {
@@ -34,12 +36,14 @@ export class ObstacleManager {
     const maxGapY = GROUND_Y - GAP_MARGIN - GAP_SIZE;
     const gapY = Math.random() * (maxGapY - minHeight) + minHeight;
 
-    this.pairs.push({
-      x: WORLD_WIDTH,
+    const pair = {
+      x: WORLD_WIDTH + PIPE_SPAWN_PADDING,
       gapTop: gapY,
       gapBottom: gapY + GAP_SIZE,
       passed: false
-    });
+    };
+    this.pairs.push(pair);
+    return pair;
   }
 
   draw(ctx) {

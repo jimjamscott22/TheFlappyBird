@@ -1,6 +1,7 @@
 import { GROUND_Y, OBSTACLE_WIDTH } from './config.js';
 import { Player } from './player.js';
 import { ObstacleManager } from './obstacles.js';
+import { CreatureManager } from './creatures.js';
 import { State, state, setState } from './state.js';
 import { playSound } from './audio.js';
 
@@ -8,6 +9,7 @@ export class Game {
   constructor() {
     this.player = new Player();
     this.obstacles = new ObstacleManager();
+    this.creatures = new CreatureManager();
     this.score = 0;
     this.bestScore = this.loadBestScore();
     this.updateUI();
@@ -37,6 +39,7 @@ export class Game {
   reset() {
     this.player.reset();
     this.obstacles.reset();
+    this.creatures.reset();
     this.score = 0;
     setState(State.READY);
     this.updateUI();
@@ -67,7 +70,12 @@ export class Game {
     if (state !== State.PLAYING) return;
 
     this.player.update(dt);
-    this.obstacles.update(dt);
+    const spawned = this.obstacles.update(dt);
+    this.creatures.update(dt);
+    for (const pair of spawned) {
+      const previous = this.obstacles.pairs[this.obstacles.pairs.indexOf(pair) - 1];
+      this.creatures.spawnBetween(previous, pair);
+    }
 
     this.checkCollisions();
     if (state === State.PLAYING) this.checkScore();
@@ -93,6 +101,15 @@ export class Game {
           this.gameOver();
           return;
         }
+      }
+    }
+
+    for (const creature of this.creatures.items) {
+      const bounds = this.creatures.getBounds(creature);
+      if (pBounds.right > bounds.left && pBounds.left < bounds.right &&
+          pBounds.bottom > bounds.top && pBounds.top < bounds.bottom) {
+        this.gameOver();
+        return;
       }
     }
   }
@@ -123,6 +140,7 @@ export class Game {
 
   draw(ctx) {
     this.obstacles.draw(ctx);
+    this.creatures.draw(ctx);
     this.player.draw(ctx);
   }
 

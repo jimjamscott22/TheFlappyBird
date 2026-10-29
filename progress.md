@@ -41,3 +41,29 @@ Original prompt: Can you work on the next round of improvement refactors laid ou
 
 - Richer scenery, original sound effects, and difficulty playtesting on physical devices. This round keeps gravity, flap strength, obstacle speed, spawn interval, and gap size unchanged.
 - User requested a local commit after verification. No push requested. Temporary browser scripts and screenshots are in ignored output/.
+
+## Flying creatures — October 29, 2026
+
+- User requested bats, cats, and other flying obstacles using imagegen, and approved bats, winged cats, and ghosts alongside pipes.
+- Approved scope: generated transparent sprites, fair spacing/gentle movement, forgiving collision, existing pipe scoring, pause/reset/cleanup, actual screenshots and gameplay checks.
+- Worktree was clean at the start of this round. Planning notes are in docs/superpowers/; implementation and checks will run sequentially without agents or tests-first work.
+- Captured and inspected output/creatures/before.png before changes. The existing game renders correctly and currently has pipe pairs only.
+
+### Implemented
+
+- Generated bat.png, winged-cat.png, and ghost.png using the built-in imagegen tool, one call per asset. Copied all original RGBA PNGs into assets/sprites/creatures/; verified transparent pixels and recorded full prompts/source rectangles in that folder's README.
+- Added CreatureManager with conservative spawning in alternate spaces between pipe pairs, a rotating species order, gentle bobbing/tilt, visible missing-image fallbacks, stable inset bounds, and offscreen cleanup.
+- Pipe spawning now starts 220 logical units beyond the viewport so both neighboring gaps are known before a creature enters view. Speed, spacing, gravity, flap strength, gap size, and pipe scoring remain unchanged.
+- Creature lanes leave the complete corridor between adjacent openings clear, including bobbing/tilt and approach clearance. Unsafe placements are skipped.
+- Game coordinates creature updates, collisions before scoring, reset, and rendering. Pause naturally freezes the creature manager. Text diagnostics include creature positions and bounds.
+- Kept optional artwork/audio behavior and updated the instructions and README. Enabled image smoothing only for the generated creature sprites after screenshot inspection caught jagged downscaling.
+
+### Verification
+
+- Node checks in tests/creatures.test.mjs cover all species, 1,000 randomized gap pairs, unsafe-spawn rejection, motion/cleanup, forgiving bounds, 30/60/144 Hz consistency, collision-before-score, pipe-only scoring, pause, and reset.
+- Ran the develop-web-game client after implementation and after smoothing; inspected its screenshots and text state, with no error log produced.
+- Sequential Chrome verification showed all three creatures in actual gameplay, an eight-point surviving run, a later nine-point record retained on reload, three replay cycles, and one animation loop.
+- Pause froze the exact creature coordinates; resume preserved player velocity. Touch and orientation checks preserved logical coordinates on 390x844, 320x568, and 844x390 emulated screens. Portrait fit without overflow; landscape scrolls intentionally.
+- Deliberately missing all three PNGs produced a visible creature fallback and status message while play continued. Only the three expected missing-resource errors were logged for that scenario; normal runs had no console errors or uncaught exceptions.
+- Inspected final screenshots for the bat, winged cat, ghost, small phone layout, and fallback creature. Captures and browser harness are in ignored output/creatures/.
+- Tests were written after implementation. No agents used. The user requested committing this round to main after verification; no push requested. Physical-device testing and subjective difficulty playtesting remain unperformed.

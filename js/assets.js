@@ -5,7 +5,10 @@ export const sprites = {};
 export const IMAGE_MANIFEST = {
   bird: null,
   obstacles: null,
-  background: null
+  background: null,
+  bat: '../assets/sprites/creatures/bat.png',
+  wingedCat: '../assets/sprites/creatures/winged-cat.png',
+  ghost: '../assets/sprites/creatures/ghost.png'
 };
 
 export async function loadImages(manifest = IMAGE_MANIFEST) {

@@ -1,6 +1,6 @@
 # TheFlappyBird
 
-A small Flappy Bird-inspired browser game built with **HTML, CSS, Vanilla JavaScript, and Canvas 2D**. Guide the bird through moving obstacle pairs, keep it airborne, and try to beat your personal best.
+A small Flappy Bird-inspired browser game built with **HTML, CSS, Vanilla JavaScript, and Canvas 2D**. Guide the bird through moving obstacle pairs, dodge flying creatures, and try to beat your personal best.
 
 The game uses native JavaScript modules and browser APIs. There is no package installation, build step, database, or application server; a static HTTP server is enough to run it.
 
@@ -10,6 +10,7 @@ The game uses native JavaScript modules and browser APIs. There is no package in
 - **Keyboard and pointer input:** flap with Space, Arrow Up, a click, or a tap.
 - **Time-based physics:** a fixed simulation step of 1/120 second, with bounded catch-up after a slow frame.
 - **Randomized obstacle gaps:** moving pairs, collision detection, and one point for each passed pair.
+- **Flying creatures:** purple bats, winged cats, and ghosts with generated transparent artwork, gentle bobbing, and forgiving collision bounds.
 - **Responsive rendering:** a 480 × 720 logical playfield, CSS scaling, and a display-density-aware canvas bitmap.
 - **Local best scores:** records saved in the browser when storage is available.
 - **An animated bird:** built-in Canvas artwork with a body, beak, eye, tail, three wing poses, and velocity-based tilt. No asset pack is required.
@@ -54,6 +55,8 @@ Serve the files over HTTP rather than opening `index.html` through a `file://` U
 
 Use a primary action to start, then keep flapping to pass through the gaps. Touching an obstacle, the ceiling, or the visible ground ends the run. Collision bounds are inset slightly from the bird's artwork and remain stable while it tilts or flaps.
 
+Bats, winged cats, and ghosts drift between pipe pairs. Contact with a creature also ends the run; passing creatures does not award points. Pipes and creatures share the same horizontal speed, and spawning leaves the corridor between neighboring pipe openings clear. Extreme gap changes skip a creature rather than block passage. The pipe stream starts a little beyond the right edge so everything enters from offscreen.
+
 | Control | Action |
 | --- | --- |
 | Space or Arrow Up | Start, flap, return to ready after game over, or resume a paused run. The canvas must have keyboard focus. |
@@ -71,7 +74,9 @@ Your best score appears on the game-over screen. It is stored locally under `fla
 
 ## Artwork and audio
 
-**The repository does not require or include an asset pack.** The default game draws an animated yellow bird, green obstacles, sky, and scrolling ground directly in Canvas. Optional asset paths default to `null`, so startup makes no requests for absent files. The game is silent until sounds are configured.
+**The game includes three generated creature sprites** in [`assets/sprites/creatures/`](assets/sprites/creatures/README.md). The bird, pipes, sky, and ground are drawn directly in Canvas. Missing creature PNGs use visible Canvas fallbacks, so they never become invisible hazards. Optional player/background/pipe artwork and audio default to `null`, avoiding requests for files that are not supplied. The game is silent until sounds are configured.
+
+The creature artwork was generated with the built-in imagegen tool in transparent-background mode. The original PNGs retain their alpha channel; source rectangles trim unused margins during rendering. The [artwork notes](assets/sprites/creatures/README.md) record the final prompts, source rectangles, and dimensions.
 
 To add assets, create these paths in the project root and enable the corresponding entries in `IMAGE_MANIFEST` in [`js/assets.js`](js/assets.js) and `AUDIO_MANIFEST` in [`js/audio.js`](js/audio.js):
 
@@ -92,6 +97,7 @@ assets/
 | `bird.png` | Three equally sized animation frames arranged horizontally. Each frame is drawn at 40 × 30 logical units. |
 | `obstacles.png` | One obstacle image. The current renderer stretches it to fit each upper and lower obstacle. |
 | `background.png` | A background image drawn across the 480 × 720 playfield. |
+| `creatures/bat.png`, `creatures/winged-cat.png`, `creatures/ghost.png` | Included transparent creature artwork; source rectangles and display sizes are defined in `js/creatures.js`. |
 | `flap.wav`, `score.wav`, `hit.wav` | Short sound effects for flapping, passing an obstacle pair, and collision. |
 
 For example, set the bird entry to `bird: '../assets/sprites/bird.png'` and a sound entry to `flap: '../assets/audio/flap.wav'`. Both manifests resolve paths relative to their modules. The ground strip is drawn directly in Canvas and does not need an image.
@@ -113,12 +119,20 @@ TheFlappyBird/
 │   ├── state.js
 │   ├── player.js
 │   ├── obstacles.js
+│   ├── creatures.js
 │   ├── input.js
 │   ├── assets.js
 │   ├── audio.js
 │   └── config.js
 ├── docs/
 │   └── flappy-bird-improvement-guide.md
+├── assets/sprites/creatures/
+│   ├── bat.png
+│   ├── winged-cat.png
+│   ├── ghost.png
+│   └── README.md
+├── tests/
+│   └── creatures.test.mjs
 ├── LICENSE
 └── README.md
 ```
@@ -130,6 +144,7 @@ TheFlappyBird/
 | [`state.js`](js/state.js) | Define and share the ready, playing, game-over, and paused states. |
 | [`player.js`](js/player.js) | Handle flapping, gravity, position, collision bounds, sprite animation, and tilt. |
 | [`obstacles.js`](js/obstacles.js) | Spawn randomized obstacle pairs, move them, draw them, and remove off-screen pairs. |
+| [`creatures.js`](js/creatures.js) | Place creatures between pipe pairs, keep the flight corridor clear, advance bobbing, draw sprites/fallbacks, expose collision bounds, and clean up offscreen creatures. |
 | [`input.js`](js/input.js) | Map keyboard, pointer, and button events to controller actions; reset loop timing on state changes and pause on page visibility changes. |
 | [`assets.js`](js/assets.js) | Load optional images and record missing-image fallbacks. |
 | [`audio.js`](js/audio.js) | Load and decode optional sounds, play effects through Web Audio, and manage mute state. |
@@ -154,24 +169,36 @@ Edit [`js/config.js`](js/config.js) to change the current defaults:
 | `SPAWN_INTERVAL` | `1.5` | Seconds between new obstacle pairs. |
 | `OBSTACLE_WIDTH` | `80` | Logical width of each obstacle. |
 | `GAP_SIZE` | `200` | Vertical opening between the upper and lower obstacles. |
+| `PIPE_SPAWN_PADDING` | `220` | Extra distance beyond the right edge for planning neighboring pipe gaps before they enter view. |
+| `CREATURE_GAP_INTERVAL` | `2` | Try a creature in every second space between pipe pairs; skip when no safe lane exists. |
+| `CREATURE_ROUTE_CLEARANCE` | `56` | Extra clearance above/below the corridor joining neighboring pipe openings. |
+| `CREATURE_BOB_AMPLITUDE` | `10` | Maximum vertical bobbing displacement in logical units. |
+| `CREATURE_BOUNDS_INSET` | `0.2` | Fraction of each drawn dimension removed on each side of creature collision bounds. |
 
 A wider gap or slower obstacles generally makes the game easier. Change values in small increments and play several runs before adjusting them again. If you change the playfield proportions, update the canvas `aspect-ratio` in [`css/game.css`](css/game.css) to match.
 
 ## Development and deployment
 
-Edit the HTML, CSS, or JavaScript files and refresh the browser to see changes. There is no generated bundle to rebuild. The project currently has no automated test suite; useful manual checks include:
+Edit the HTML, CSS, or JavaScript files and refresh the browser to see changes. There is no generated bundle to rebuild. Focused creature checks use Node.js's built-in test runner (verified with Node.js 22):
+
+```sh
+node --test tests/creatures.test.mjs
+```
+
+These cover species rotation, randomized spawn clearance, unsafe-spawn rejection, movement/cleanup, refresh-rate consistency, collision-before-score, unchanged pipe scoring, pause, and reset. Useful manual checks include:
 
 - Start, flap, score, collide, reset, and start another run.
 - Pause through the button and by switching browser tabs, then resume deliberately.
 - Check keyboard focus, pointer input, and canvas sizing on the devices you intend to support.
 - Reload after setting a record and confirm that the best score persists when storage is available.
 - Configure optional images and sounds, then check missing-file fallbacks.
+- Survive long enough to see all three flying creature types; confirm that their artwork stays visible on mobile and that a hit ends the run.
 
-For browser inspection, `window.render_game_to_text()` returns JSON describing the logical world, state, bird, obstacles, score, and timers. `window.advanceTime(ms)` switches the current page to deterministic manual stepping through the same fixed-step simulation; reload to return to normal animation timing.
+For browser inspection, `window.render_game_to_text()` returns JSON describing the logical world, state, bird, pipes, creatures (including current bounds), score, and timers. `window.advanceTime(ms)` switches the current page to deterministic manual stepping through the same fixed-step simulation; reload to return to normal animation timing.
 
 This refactor was checked in Chrome with desktop, 390 × 844 and 320 × 568 portrait, and 844 × 390 landscape viewports. Browser checks covered touch and keyboard input, repeated replay, pause/resume, orientation changes, collisions and scoring, saved records, asset failures, unavailable storage/audio, and matching simulation results at 30, 60, and 144 Hz. These are emulated device checks rather than physical-device tests.
 
-Deploy the project files to a static host that serves JavaScript modules correctly. Keep `index.html`, `css/`, and `js/` together, along with `assets/` if you add it. No server-side game logic is needed.
+Deploy the project files to a static host that serves JavaScript modules correctly. Keep `index.html`, `css/`, `js/`, and the included `assets/` together. No server-side game logic is needed.
 
 ## Further improvements
 
